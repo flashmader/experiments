@@ -13,15 +13,16 @@ namespace SimpleFileTransformer
 
         private readonly int _chunksQueueSize = 32;
         private readonly BlockingCollection<FileChunk> _readFileChunks;
-
-        private readonly AutoResetEvent _workersAutoReset;
         private int _lastTransformedChunkNumber = -1;
+
         private readonly Thread[] _transformationWorkers;
+        private readonly AutoResetEvent _workersAutoReset;
+        private readonly CancellationTokenSource _cancellationTokenSource;
+
         private readonly LinkedList<Exception> exceptions = new LinkedList<Exception>();
-        private CancellationTokenSource _cancellationTokenSource;
+        private readonly object _exceptionHandlerLock = new object();
 
         public IEnumerable<Exception> Exceptions => exceptions;
-        private object _exceptionHandlerLock = new object();
 
         public FileTransformer(IFileReader sourceFileReader, ITransformer transformer, IFileWriter resultWriter)
         {

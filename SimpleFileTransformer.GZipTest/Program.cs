@@ -70,7 +70,7 @@ namespace SimpleFileTransformer.GZipTest
 
                 if (!fileTransformer.Exceptions.Any())
                 {
-                    Console.WriteLine("File processing finished successfully.");
+                    ConsoleHelper.WriteGreen("File processing finished successfully.");
                     return Success;
                 }
                 else
@@ -119,7 +119,7 @@ namespace SimpleFileTransformer.GZipTest
             catch (FileHandlingException ex)
             {
                 ConsoleHelper.WriteRed("A problem occurred while opening the source file for reading:");
-                ConsoleHelper.WriteRed(ex.Message);
+                ConsoleHelper.WriteYellow(ex.Message);
                 
                 return null;
             }
@@ -134,7 +134,7 @@ namespace SimpleFileTransformer.GZipTest
             catch (FileHandlingException ex)
             {
                 ConsoleHelper.WriteRed("A problem occurred while creating the target file:");
-                ConsoleHelper.WriteRed(ex.Message);
+                ConsoleHelper.WriteYellow(ex.Message);
 
                 return null;
             }
@@ -162,9 +162,26 @@ namespace SimpleFileTransformer.GZipTest
 
             if (args.Length != 3)
             {
-                Console.Write($"{AppDomain.CurrentDomain.FriendlyName} must be called with exactly three arguments:");
-                Console.Write("GZipTest.exe [compress | decompress] [source file name] [output file name]");
+                var exeName = AppDomain.CurrentDomain.FriendlyName;
+                ConsoleHelper.WriteRed($"{exeName}.exe must be called with exactly three arguments:");
+                Console.WriteLine($"{exeName}.exe [compress | decompress] [source file name] [output file name]");
+                return null;
             }
+            
+            if(args[0] != "compress" && args[0] != "decompress")
+            {
+                ConsoleHelper.WriteRed("Only 'compress' or 'decompress' are allowed as for the first argument");
+                return null;
+            }
+
+            inputs = new Inputs
+            {
+                Transformation = args[0] == "compress" 
+                    ? Inputs.TransformationType.Compress 
+                    : Inputs.TransformationType.Decompress,
+                SourceFile = args[1],
+                TargetFile = args[2]
+            };
 
             #endif
 
