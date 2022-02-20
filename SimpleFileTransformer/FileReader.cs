@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace SimpleFileCompressor
+namespace SimpleFileTransformer
 {
     public sealed class FileReader : IFileReader
     {

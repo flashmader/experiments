@@ -6,7 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\SimpleFileEncryptor\SimpleFileCompressor.csproj" />
+    <ProjectReference Include="..\SimpleFileTransformer.GZip\SimpleFileTransformer.GZip.csproj" />
+    <ProjectReference Include="..\SimpleFileTransformer\SimpleFileTransformer.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-﻿namespace SimpleFileCompressor
+﻿namespace SimpleFileTransformer
 {
     public readonly struct FileChunk
     {

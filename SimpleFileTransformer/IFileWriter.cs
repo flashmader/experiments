@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SimpleFileCompressor
+﻿namespace SimpleFileTransformer
 {
     public interface IFileWriter
     {

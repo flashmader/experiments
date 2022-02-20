@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace SimpleFileCompressor
+namespace SimpleFileTransformer
 {
     public interface IFileReader
     {

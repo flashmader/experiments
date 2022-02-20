@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace SimpleFileCompressor
+namespace SimpleFileTransformer
 {
     public sealed class FileTransformer
     {

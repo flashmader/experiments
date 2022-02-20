@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.IO.Compression;
 
-namespace SimpleFileCompressor
+namespace SimpleFileTransformer.GZip
 {
     public class GZipCompressor : ITransformer
     {
