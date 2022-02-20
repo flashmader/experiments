@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace SimpleFileTransformer
@@ -9,13 +10,18 @@ namespace SimpleFileTransformer
         private readonly IFileReader _sourceFileReader;
         private readonly ITransformer _transformer;
         private readonly IFileWriter _resultWriter;
-        
+
         private readonly int _chunksQueueSize = 32;
         private readonly BlockingCollection<FileChunk> _readFileChunks;
 
         private readonly AutoResetEvent _workersAutoReset;
         private int _lastTransformedChunkNumber = -1;
-        private Thread[] _transformationWorkers;
+        private readonly Thread[] _transformationWorkers;
+        private readonly LinkedList<Exception> exceptions = new LinkedList<Exception>();
+        private CancellationTokenSource _cancellationTokenSource;
+
+        public IEnumerable<Exception> Exceptions => exceptions;
+        private object _exceptionHandlerLock = new object();
 
         public FileTransformer(IFileReader sourceFileReader, ITransformer transformer, IFileWriter resultWriter)
         {
@@ -25,15 +31,26 @@ namespace SimpleFileTransformer
 
             _readFileChunks = new BlockingCollection<FileChunk>(_chunksQueueSize);
             _workersAutoReset = new AutoResetEvent(true);
+
+            var threadsCount = Math.Max(Environment.ProcessorCount - 1, 1);
+            _transformationWorkers = new Thread[threadsCount];
+            _cancellationTokenSource = new CancellationTokenSource();
         }
 
         public void Transform()
         {
             StartTransformationWorkers();
 
-            foreach (var fileChunk in _sourceFileReader.ReadChunks())
+            try
             {
-                _readFileChunks.Add(fileChunk);
+                foreach (var fileChunk in _sourceFileReader.ReadChunks())
+                {
+                    _readFileChunks.Add(fileChunk, _cancellationTokenSource.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                exceptions.AddLast(new Exception("Reading source file was cancelled."));
             }
 
             _readFileChunks.CompleteAdding();
@@ -46,47 +63,70 @@ namespace SimpleFileTransformer
 
         private void StartTransformationWorkers()
         {
-            var threadsCount = Math.Max(Environment.ProcessorCount - 1, 1);
-            _transformationWorkers = new Thread[threadsCount];
-
-            for (var i = 0; i < threadsCount; i++)
+            void ExceptionHandler(Exception ex)
             {
-                var chunkProcessingWorker = new Thread(TransformChunk) { Name = $"Chunk processing worker N{i + 1}" };
+                lock (_exceptionHandlerLock)
+                {
+                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        _cancellationTokenSource.Cancel();
+                        exceptions.AddFirst(ex);
+                    }
+                }
+            }
+
+            for (var i = 0; i < _transformationWorkers.Length; i++)
+            {
+                var chunkProcessingWorker = new Thread(() => TransformChunk(ExceptionHandler, _cancellationTokenSource.Token))
+                {
+                    Name = $"Chunk processing worker N{i + 1}"
+                };
                 _transformationWorkers[i] = chunkProcessingWorker;
                 chunkProcessingWorker.Start();
             }
         }
 
-        private void TransformChunk()
+        private void TransformChunk(Action<Exception> exceptionHandler, CancellationToken cancellation)
         {
-            while (!_readFileChunks.IsAddingCompleted || _readFileChunks.Count != 0)
+            try
             {
-                var chunkTaken = _readFileChunks.TryTake(out var chunk);
-                if (!chunkTaken)
+                while (!_readFileChunks.IsAddingCompleted || _readFileChunks.Count != 0)
                 {
-                    continue;
-                }
-
-                var transformationResult = _transformer.Transform(chunk);
-
-                while (_workersAutoReset.WaitOne())
-                {
-                    if (_lastTransformedChunkNumber + 1 == chunk.Number)
+                    if (cancellation.IsCancellationRequested)
                     {
-                        break;
+                        return;
                     }
+
+                    var chunkTaken = _readFileChunks.TryTake(out var chunk);
+                    if (!chunkTaken)
+                    {
+                        continue;
+                    }
+
+                    var transformationResult = _transformer.Transform(chunk);
+
+                    while (_workersAutoReset.WaitOne())
+                    {
+                        if (_lastTransformedChunkNumber + 1 == chunk.Number)
+                        {
+                            break;
+                        }
+
+                        _workersAutoReset.Set();
+                    }
+
+                    _resultWriter.Write(transformationResult);
+
+                    _lastTransformedChunkNumber++;
 
                     _workersAutoReset.Set();
                 }
-
-                _resultWriter.Write(transformationResult);
-
-                _lastTransformedChunkNumber++;
-
+            }
+            catch (Exception e)
+            {
+                exceptionHandler(e);
                 _workersAutoReset.Set();
             }
         }
     }
-
-
 }

@@ -3,16 +3,23 @@ using System.IO.Compression;
 
 namespace SimpleFileTransformer.GZip
 {
-    public class GZipDecompressor : ITransformer
+    public sealed class GZipDecompressor : ITransformer
     {
         public byte[] Transform(FileChunk chunk)
         {
-            using var zippedStream = new MemoryStream(chunk.Data);
-            using var gZipStream = new GZipStream(zippedStream, CompressionMode.Decompress);
-            using var decompressedStream = new MemoryStream();
+            try
+            {
+                using var zippedStream = new MemoryStream(chunk.Data);
+                using var gZipStream = new GZipStream(zippedStream, CompressionMode.Decompress);
+                using var decompressedStream = new MemoryStream();
 
-            gZipStream.CopyTo(decompressedStream);
-            return decompressedStream.ToArray();
+                gZipStream.CopyTo(decompressedStream);
+                return decompressedStream.ToArray();
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new CompressionException("The source file is corrupted or compressed with unknown algorithm.", ex);
+            }
         }
     }
 }

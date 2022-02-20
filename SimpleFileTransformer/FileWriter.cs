@@ -7,9 +7,30 @@ namespace SimpleFileTransformer
     {
         private readonly FileStream _file;
 
-        public FileWriter(string filePath)
+        private FileWriter(FileStream stream)
         {
-            _file = File.Open(filePath, FileMode.Create);
+            _file = stream;
+        }
+
+        public static FileWriter Open(string filePath)
+        {
+            try
+            {
+                var fileStream = File.Open(filePath, FileMode.CreateNew);
+                return new FileWriter(fileStream);
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is ArgumentNullException ||
+                ex is PathTooLongException ||
+                ex is DirectoryNotFoundException ||
+                ex is IOException ||
+                ex is UnauthorizedAccessException ||
+                ex is FileNotFoundException ||
+                ex is NotSupportedException)
+            {
+                throw new FileHandlingException(ex.Message, ex);
+            }
         }
 
         public void Write(byte[] bytes)

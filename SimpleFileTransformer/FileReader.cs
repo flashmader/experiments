@@ -4,26 +4,46 @@ using System.IO;
 
 namespace SimpleFileTransformer
 {
-    public sealed class FileReader : IFileReader
+    public sealed class FileReader : IFileReader, IDisposable
     {
-        private readonly string _filePath;
-        private readonly int _chunkSize = 16_777_216;
+        private readonly FileStream _fileStream;
+        private static int _chunkSize;
 
-        public FileReader(string filePath)
+        private FileReader(FileStream fileStream, int chunkSize)
         {
-            _filePath = filePath;
+            _chunkSize = chunkSize;
+            _fileStream = fileStream;
+        }
+
+        public static FileReader Open(string filePath, int chunkSize = 16_777_216)
+        {
+            try
+            {
+                var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read);
+                return new FileReader(fileStream, chunkSize);
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is ArgumentNullException ||
+                ex is PathTooLongException ||
+                ex is DirectoryNotFoundException ||
+                ex is IOException ||
+                ex is UnauthorizedAccessException ||
+                ex is FileNotFoundException ||
+                ex is NotSupportedException)
+            {
+                throw new FileHandlingException(ex.Message, ex);
+            }
         }
 
         public IEnumerable<FileChunk> ReadChunks()
         {
             var buffer = new byte[_chunkSize];
-            using var inputStream = File.Open(_filePath, FileMode.Open, FileAccess.Read);
-
             var chunkIndex = 0;
 
             while (true)
             {
-                var bytesRead = inputStream.Read(buffer, 0, _chunkSize);
+                var bytesRead = _fileStream.Read(buffer, 0, _chunkSize);
                 if (bytesRead == 0)
                 {
                     break;
@@ -35,6 +55,11 @@ namespace SimpleFileTransformer
                 var chunk = new FileChunk(chunkData, chunkIndex++);
                 yield return chunk;
             }
-        } 
+        }
+
+        public void Dispose()
+        {
+            _fileStream.Dispose();
+        }
     }
 }

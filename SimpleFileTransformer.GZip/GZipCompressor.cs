@@ -3,7 +3,7 @@ using System.IO.Compression;
 
 namespace SimpleFileTransformer.GZip
 {
-    public class GZipCompressor : ITransformer
+    public sealed class GZipCompressor : ITransformer
     {
         public byte[] Transform(FileChunk chunk)
         {
